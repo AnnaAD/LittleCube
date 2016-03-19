@@ -1,0 +1,734 @@
+
+<!doctype html> <html>
+<head>
+<title>Cube</title>
+<script>
+    var spawnX = 30;
+    var spawnY = 150;
+    
+    var level = 1;
+    
+    // var lvlTxt = "Little Cube what are you doing here?";
+	var lvlTxt;
+
+	var offLeft = 0;
+	var offTop  = 0;
+	
+	var WINDOW_WIDTH  = 480;
+	var WINDOW_HEIGHT = 320;
+
+	var keys = [];
+    var friction = 0.8;
+    var gravity = 0.2;
+
+	player = {
+      x : spawnX,
+      y : spawnY,
+      width : 15,
+      height : 15,
+      jumping : false,
+      velY: 0,
+      velX: 0,
+      speed: 3,
+      jumping: false,
+      grounded: false
+  };
+
+  	var boxes = [];
+	 
+	boxes.push({
+        x: 0,
+        y: 0,
+        width: 10,
+        height: WINDOW_HEIGHT,
+        mode: 0
+	});
+	boxes.push({
+	    x: 0,
+	    y: WINDOW_HEIGHT - 100,
+	    width: WINDOW_WIDTH,
+	    height: 100,
+	    mode: 0
+	});
+	boxes.push({
+	    x: WINDOW_WIDTH - 10,
+	    y: 0,
+	    width: 50,
+	    height: WINDOW_HEIGHT/2,
+	    mode: 0
+	});
+	 
+
+
+ 
+
+
+	var play          = {top:0, bottom:0, right:0, left:0};
+	var options       = {top:0, bottom:0, right:0, left:0};
+	var ints          = {top:0, bottom:0, right:0, left:0};
+
+
+    var up          = {top:0, bottom:0, right:0, left:0};
+	var right       = {top:0, bottom:0, right:0, left:0};
+	var left          = {top:0, bottom:0, right:0, left:0};
+
+	const DIFF_EASY  = 5;
+	const DIFF_HARD  = 10;
+	var difficulty   = DIFF_EASY;
+
+	var score        = 0;
+	var highScore    = 0;
+
+	var leftKeyDown      = false;
+	var rightKeyDown     = false;	
+
+	const KEY_UPARROW   = 38;
+	const KEY_LEFTARROW  = 37;
+	const KEY_RIGHTARROW = 39;
+	const KEY_SPACEBAR = 40;
+
+	var c;
+
+	const MODE_INIT         = 0;
+	const MODE_BEGIN        = 1;
+	const MODE_PLAY         = 2;
+	const MODE_END          = 3;
+	const MODE_OPTIONS      = 4;
+	const MODE_INSTRUCTIONS = 5;
+
+	var mode           = MODE_INIT;
+
+	var timerHandle;   // use to remember interval timer (if you want to turn it off)
+
+	var gameOver;
+
+	var laser;
+
+	var laserSound      = [];
+	var numLasers       = 3;
+	var numSoundsLoaded = 0;
+	var soundPool       = [];
+	var MAX_SOUNDS      = 5;
+	var soundBackground;
+	
+	window.addEventListener("load", eventWindowLoaded, false);
+
+	// 
+	// MAIN LOOP
+	// 
+	function initGame() {
+		mode      = MODE_PLAY;
+		level     = 1;
+		console.log('INIT GAME ' + level);
+		nextLevel(level);
+	};
+
+	function soundLoaded(e) {
+		numSoundsLoaded++;
+		if (numSoundsLoaded >= numLasers) {
+			for (var i = 0; i < numLasers; i++) {
+				laserSound[i].removeEventListener('canplaythrough', soundLoaded, false);
+				soundPool.push({name:'laser', element:laserSound[i], type:'audio/wav', played:false});
+			}
+		}
+	}
+
+	function playSound(sound, volume) {
+		var soundFound = false;
+		var soundIndex = 0;
+
+		if (soundPool.length > 0) {
+			while (!soundFound && soundIndex < soundPool.length) {
+				var currSound = soundPool[soundIndex];
+				if ((currSound.element.ended || !currSound.played) && currSound.name == sound) {
+					soundFound = true;
+					currSound.played = true;
+				} else {
+					soundIndex++;
+				}
+			}
+		}
+
+		if (soundFound === true) {
+			var tempSound = soundPool[soundIndex].element;
+			tempSound.loop   = false;
+			tempSound.volume = volume;
+			tempSound.play();
+		} else if (soundPool.length < MAX_SOUNDS) {
+			var tempSound = document.createElement('audio');
+			tempSound.setAttribute('src', 'LASER1.WAV');
+			tempSound.volume = volume;
+			tempSound.play();
+			soundPool.push({name:'laser', element:tempSound, type:'audio/wav', played:true});
+		}
+	}
+
+
+	function runGame() {
+		// start loading sounds
+		for (var i = 0; i < numLasers; i++) {
+			laserSound[i] = document.createElement('audio');
+			document.body.appendChild(laserSound[i]);
+			laserSound[i].setAttribute('src', 'LASER1.WAV');
+			laserSound[i].addEventListener('canplaythrough', soundLoaded, false);
+		}
+
+		// set up interval timer
+		timerHandle = setInterval(doGame, 25);
+	};
+
+	function endGame() {
+		soundBackground.pause();
+		soundBackground.currentTime = 0;
+		if(score > highScore){
+			highScore = score;
+		};
+		mode = MODE_END;
+		gameOver = 150;
+	}
+
+	function doGame() {
+		if (mode === MODE_INIT) {
+			loadingScreen();
+			if (numSoundsLoaded >= numLasers) {
+				mode = MODE_BEGIN;
+				soundBackground = document.getElementById('bgsound');
+				soundBackground.play();
+			}
+
+		} else if (mode === MODE_PLAY) {
+			update();
+		} else if (mode === MODE_END) {
+			endScreen();
+			gameOver--;
+			if (gameOver < 0) {
+				mode = MODE_BEGIN;
+			}
+		} else if (mode === MODE_BEGIN) {
+			splashScreen();
+		} else if (mode === MODE_OPTIONS) {
+			optionsScreen();
+		} else if (mode === MODE_INSTRUCTIONS) {
+			intsScreen();
+		}
+	};
+
+	function endScreen() {
+		drawBackground();
+		drawScore();
+		doText('game over', WINDOW_WIDTH/2, WINDOW_HEIGHT/2, 'white', '14pt EuphemiaUCAS', 'bottom', 'center');
+	}
+
+	function loadingScreen() {
+		drawBackground();
+		doText('loading...', WINDOW_WIDTH/2, WINDOW_HEIGHT/2, 'white', '30pt EuphemiaUCAS', 'bottom', 'center');
+	}
+
+	function intsScreen() {
+		drawBackground();
+		doText('Use the arrows to move.', WINDOW_WIDTH/2, WINDOW_HEIGHT/4, 'white', '12pt EuphemiaUCAS', 'bottom', 'center');
+		doText('You are dealthly allergic to red squares!', WINDOW_WIDTH/2, WINDOW_HEIGHT/3, 'white', '12pt EuphemiaUCAS', 'bottom', 'center');
+		doText("Try to avoid throwing your phone down in rage.", WINDOW_WIDTH/2, WINDOW_HEIGHT/2.5, 'white', '12pt EuphemiaUCAS', 'bottom', 'center');
+		doText("Use the level creator to make your own levels!", WINDOW_WIDTH/2, WINDOW_HEIGHT/2, 'white', '12pt EuphemiaUCAS', 'bottom', 'center');
+		doText('Have Fun!', WINDOW_WIDTH/2, WINDOW_HEIGHT/1.5, 'white', '12pt EuphemiaUCAS', 'bottom', 'center');
+
+
+   		c.globalAlpha  = 1;
+		c.lineWidth = 1;
+		c.fillStyle = '#00FF00';
+   		c.fillRect(ints.left, ints.top, ints.right - ints.left, ints.bottom - ints.top);
+   		doText('<--', WINDOW_WIDTH/2, WINDOW_HEIGHT/1.2, 'black', '24pt EuphemiaUCAS', 'middle', 'center');
+
+
+	}
+
+	function splashScreen() {
+		drawBackground();
+		//drawDifficulty();
+		//drawHighscore();
+
+		doText('The Little Cube', WINDOW_WIDTH/2, WINDOW_HEIGHT/3, 'black', '30pt EuphemiaUCAS', 'middle', 'center');
+
+		// Draw play Button
+		play.top    = WINDOW_HEIGHT/2 - 20;
+		play.bottom = WINDOW_HEIGHT/2 + 20;
+		play.right  = WINDOW_WIDTH/2 + 50;
+		play.left   = WINDOW_WIDTH/2 - 50;
+
+		//console.log(play.right + "," + play.left + "," + play.top + "," + play.bottom);
+
+		c.globalAlpha  = 1;
+		c.lineWidth = 1;
+		c.fillStyle = '#ff0000';
+		c.fillRect(play.left - 4, play.top - 4, 4, 4);
+		c.fillStyle = '#00FFFF';
+   		c.fillRect(play.left, play.top, play.right - play.left, play.bottom - play.top);
+		c.fillStyle = '#ff0000';
+		c.fillRect(play.right, play.bottom, 4, 4);
+   		doText('Play', WINDOW_WIDTH/2, WINDOW_HEIGHT/2, 'black', '14pt EuphemiaUCAS', 'middle', 'center');
+
+		// Draw Options Button
+		options.top   = WINDOW_HEIGHT/1.5 - 20;
+		options.bottom = WINDOW_HEIGHT/1.5 + 20;
+		options.right  = WINDOW_WIDTH/2 + 50;
+		options.left   = WINDOW_WIDTH/2 - 50;
+
+		c.globalAlpha  = 1;
+		c.lineWidth = 1;
+		c.fillStyle = '#00FFFF';
+   		c.fillRect(options.left, options.top, options.right - options.left, options.bottom - options.top);
+   		doText('Level Creator', WINDOW_WIDTH/2, WINDOW_HEIGHT/1.5, 'black', '10pt EuphemiaUCAS', 'middle', 'center');
+
+   		// Draw Instructions Button
+
+   		ints.top    =  WINDOW_HEIGHT/1.2 - 20;
+   		ints.bottom =  WINDOW_HEIGHT/1.2 + 20;
+   		ints.right  =  WINDOW_WIDTH/2 + 50;
+   		ints.left   =  WINDOW_WIDTH/2 - 50;
+
+   		c.globalAlpha  = 1;
+		c.lineWidth = 1;
+		c.fillStyle = '#00FFFF';
+   		c.fillRect(ints.left, ints.top, ints.right - ints.left, ints.bottom - ints.top);
+   		doText('Instructions', WINDOW_WIDTH/2, WINDOW_HEIGHT/1.2, 'black', '10pt EuphemiaUCAS', 'middle', 'center');
+	}
+
+	function optionsScreen() {
+		drawBackground();
+		//drawDifficulty();
+		//drawHighscore();
+
+		c.globalAlpha  = 1;
+		c.fillStyle    = 'white';
+		c.font         = '10pt EuphemiaUCAS';
+		c.textBaseline = 'bottom';
+		c.textAlign    = 'center';
+		c.fillText('This feature has not yet been implemented. Stay tuned!', WINDOW_WIDTH / 2, WINDOW_HEIGHT / 3);
+
+	}
+
+	// 
+	// INITIALIZE APPLICATION
+	//
+	function eventWindowLoaded () {	
+		var canvas = document.getElementById('myCanvas');
+		c = canvas.getContext("2d");
+		offLeft = canvas.offsetLeft;
+		offTop  = canvas.offsetTop;
+		canvas.addEventListener("mousedown", doMouseDown,false);
+		runGame();
+	}
+	
+	//
+	// KEY PRESS STUFF
+	// 
+	
+	function doMouseDown(event) {
+		 var mouseX = event.pageX - offLeft;
+		 var mouseY = event.pageY - offTop;
+		 console.log("m: " + mouseX + "," + mouseY);
+		 console.log("play: " + play.right + "," + play.left + "," + play.top +  "," + play.bottom);
+		  
+		 if (mode === MODE_BEGIN){
+		 	console.log("mode begin");
+		 	if (mouseX < play.right && mouseX > play.left && mouseY < play.bottom && mouseY > play.top) {
+		 		console.log("play");
+		 		initGame();
+		 	}
+
+		 	if (mouseX < options.right && mouseX > options.left && mouseY < options.bottom && mouseY > options.top) {
+		 		console.log("options");
+		 		mode = MODE_OPTIONS;
+		 	}
+
+		 	if (mouseX < ints.right && mouseX > ints.left && mouseY < ints.bottom && mouseY > ints.top) {
+		 		console.log("Instructions");
+		 		mode = MODE_INSTRUCTIONS;
+		 	}
+		} else if (mode === MODE_OPTIONS) {
+			 mode = MODE_BEGIN;
+		} else if (mode === MODE_INSTRUCTIONS) {
+			 if (mouseX < ints.right && mouseX > ints.left && mouseY < ints.bottom && mouseY > ints.top) {
+			 	mode = MODE_BEGIN;
+			} 
+		}
+	}
+
+	function doMouseUp(event) {
+		right = false;
+		left = false;
+		up = false;
+	}
+
+	document.onkeydown = function(e) {
+		// console.log(e.keyCode);
+		console.log("key!");
+
+		if (mode === MODE_PLAY) {
+			 keys[e.keyCode] = true;
+		} else if (mode === MODE_BEGIN) {
+			if (e.keyCode === KEY_SPACEBAR) {
+				initGame();
+			}
+		} else if (mode === MODE_END) {
+			if (e.keyCode === KEY_SPACEBAR) {
+				mode = MODE_BEGIN;
+			}
+		}
+	};	
+
+	document.onkeyup = function(e) {
+		// console.log(e.keyCode);
+		 keys[e.keyCode] = false;
+	};	
+
+	//
+	// CHECK STUFF
+	// 
+	function checkStuff() {
+	
+	}
+
+	//
+	// UPDATE STUFF
+	// 
+	
+	
+	function update() {
+		  // check keys
+	    if (keys[38] || keys[32] || up === true) {
+	        // up arrow or space
+	        if (!player.jumping && player.grounded) {
+	            player.jumping = true;
+	            player.grounded = false;
+	            player.velY = -player.speed * 2;
+	        }
+	    }
+	    if (keys[39] || right === true) {
+	        // right arrow
+	        if (player.velX < player.speed) {
+	            player.velX++;
+	        }
+	    }
+	    if (keys[37] || left === true) {
+	        // left arrow
+	        if (player.velX > -player.speed) {
+	            player.velX--;
+	        }
+	    }
+
+	    player.velX *= friction;
+	    player.velY += gravity;
+
+	    c.clearRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+	    drawBackground();
+	    //c.fillStyle = "black";
+	    //c.beginPath();
+	    
+	    player.grounded = false;
+	    for (var i = 0; i < boxes.length; i++) {
+	        
+	        c.beginPath();
+	        c.rect(boxes[i].x, boxes[i].y, boxes[i].width, boxes[i].height);
+
+	        if(boxes[i].mode === 1) {
+	        	c.fillStyle = "red";
+	        	c.strokeStyle = 'red';
+
+	        } else if(boxes[i].mode === 2) {
+	        	c.fillStyle = "purple";
+	        	c.strokeStyle = 'purple';
+	        } else {
+	        	c.fillStyle = "black";
+	        	c.strokeStyle = 'black';
+
+	        }
+
+	        c.fill();
+	        c.lineWidth = 0;
+	        c.stroke();
+
+	         doText(lvlTxt, WINDOW_WIDTH/2, 40, 'white', '14pt EuphemiaUCAS', 'bottom', 'center');
+	        
+	        //c.fillStyle = "black";
+
+	        var dir = colCheck(player, boxes[i]);
+
+	        if (dir === "l" || dir === "r") {
+	            player.velX = 0;
+	            player.jumping = false;
+	        } else if (dir === "b") {
+	            player.grounded = true;
+	            player.jumping = false;
+	        } else if (dir === "t") {
+	            player.velY *= -1;
+	        }
+
+
+	    	drawControls();
+
+
+
+	    }
+	    
+	    if(player.grounded){
+	         player.velY = 0;
+	    }
+	    
+	    player.x += player.velX;
+	    player.y += player.velY;
+
+	    drawPlayer();
+
+	    checkLevelComplete();
+
+	}	
+
+	function colCheck(shapeA, shapeB) {
+    	// get the vectors to check against
+    	var vX = (shapeA.x + (shapeA.width / 2)) - (shapeB.x + (shapeB.width / 2)),
+        vY = (shapeA.y + (shapeA.height / 2)) - (shapeB.y + (shapeB.height / 2)),
+        // add the half widths and half heights of the objects
+        hWidths = (shapeA.width / 2) + (shapeB.width / 2),
+        hHeights = (shapeA.height / 2) + (shapeB.height / 2),
+        colDir = null;
+
+    	// if the x and y vector are less than the half width or half height, they we must be inside the object, causing a collision
+    	if (Math.abs(vX) < hWidths && Math.abs(vY) < hHeights) {
+        	// figures out on which side we are colliding (top, bottom, left, or right)
+	        if(shapeB.mode === 1) {
+    	    	player.x = spawnX;
+      			player.y = spawnY;
+        	} else if(shapeB.mode === 2) {
+        		player.velY = -10;
+        	}
+
+
+        	var oX = hWidths - Math.abs(vX),
+            oY = hHeights - Math.abs(vY);
+        	if (oX >= oY) {
+            	if (vY > 0) {
+                	colDir = "t";
+                	shapeA.y += oY;
+            	} else {
+                	colDir = "b";
+                	shapeA.y -= oY;
+   		        }
+	        } else {
+            	if (vX > 0) {
+                	colDir = "l";
+                	shapeA.x += oX;
+            	} else {
+                	colDir = "r";
+                	shapeA.x -= oX;
+            	}
+
+            	if(shapeB.mode === 2) {
+        			player.velY = -10;
+        		}
+        	}
+    	}
+    	return colDir;
+	}
+
+
+	// 
+	// DRAW STUFF
+	// 
+	function drawPlayer() {
+		c.fillStyle = "black";
+		c.fillRect(player.x, player.y, player.width, player.height);
+		c.fillStyle = "#00FFFF";
+		c.fillRect(player.x + 10, player.y + 5, 2,2);
+	}
+
+	
+
+	function drawBackground() {
+		c.globalAlpha  = 1;
+		c.fillStyle = "gray";
+		c.fillRect(0,0,WINDOW_WIDTH,WINDOW_HEIGHT);
+	}
+
+	function doText(str, x, y, color, font, baseline, align) {
+		c.globalAlpha  = 1;
+		c.fillStyle    = color;
+		c.font         = font;
+		c.textBaseline = baseline;
+		c.textAlign    = align;
+		c.fillText(str, x, y);
+
+	}
+
+	function drawScore() {
+		if (score > highScore) {
+			var str = 'new high ' + score;
+			var clr = '#00ff00';
+		} else {
+			var str = score;
+			var clr = 'white';
+		}
+		doText(str, WINDOW_WIDTH - 10, WINDOW_HEIGHT - 10, clr, '12pt EuphemiaUCAS', 'middle', 'right');
+	}
+	  
+	function drawDifficulty() {
+		if (difficulty === DIFF_EASY) {
+			var str = 'easy';
+		} else {
+			var str = 'hard';
+		}
+		doText(str, 10, WINDOW_HEIGHT - 10, 'white', '12pt EuphemiaUCAS', 'middle', 'left');		
+	}
+
+	function drawHighscore() {
+		doText('high ' + highScore, WINDOW_WIDTH - 10, WINDOW_HEIGHT - 10, '#00ff00', '12pt EuphemiaUCAS', 'middle', 'right');		
+	}
+
+	function drawControls() {
+        
+        up.top    =  WINDOW_HEIGHT/1.2 - 20;
+   		up.bottom =  WINDOW_HEIGHT/1.2 + 20;
+   		up.right  =  425;
+   		up.left   = up.right - 50;
+
+   		c.globalAlpha  = 1;
+		c.lineWidth = 1;
+		c.fillStyle = '#00FFFF';
+   		c.fillRect(up.left, up.top, up.right - up.left, up.bottom - up.top);
+   		doText('^', 400, WINDOW_HEIGHT/1.2, 'black', '10pt EuphemiaUCAS', 'middle', 'center');
+   		
+   		right.top    =  WINDOW_HEIGHT/1.2 - 20;
+   		right.bottom =  WINDOW_HEIGHT/1.2 + 20;
+   		right.right  =  200;
+   		right.left   =  150;
+
+   		c.globalAlpha  = 1;
+		c.lineWidth = 1;
+		c.fillStyle = '#00FFFF';
+   		c.fillRect(right.left, right.top, right.right - right.left, right.bottom - right.top);
+   		doText('>', 175, WINDOW_HEIGHT/1.2, 'black', '10pt EuphemiaUCAS', 'middle', 'center');
+   		
+   		left.top    =  WINDOW_HEIGHT/1.2 - 20;
+   		left.bottom =  WINDOW_HEIGHT/1.2 + 20;
+   		left.right  =  100;
+   		left.left   =  50;
+
+   		c.globalAlpha  = 1;
+		c.lineWidth = 1;
+		c.fillStyle = '#00FFFF';
+   		c.fillRect(left.left, left.top, left.right - left.left, left.bottom - left.top);
+   		doText('<', 75, WINDOW_HEIGHT/1.2, 'black', '10pt EuphemiaUCAS', 'middle', 'center');
+    }
+
+     function checkLevelComplete(){
+        if(player.x > WINDOW_WIDTH - 1 ){
+            level++;
+            nextLevel(level);
+        }
+    }
+    
+    function nextLevel(tarlevel) {
+        boxes = [];
+
+        level = tarlevel;
+        console.log("Level is: " + tarlevel);
+        
+        
+        player.x = spawnX;
+	    player.y = spawnY;
+    	 
+        
+        boxes.push({
+    	    x: 0,
+    	    y: WINDOW_HEIGHT - 100,
+    	    width: WINDOW_WIDTH,
+    	    height: 100,
+    	    mode: 0
+    	});
+    	
+    	boxes.push({
+            x: 0,
+            y: 0,
+            width: 10,
+            height: WINDOW_HEIGHT,
+            mode: 0
+    	});
+       
+        if (tarlevel === 1) {
+        	
+        	lvlTxt = "Little Cube what are you doing here?";
+
+        	console.log("one");
+			 
+			
+			boxes.push({
+			    x: WINDOW_WIDTH - 10,
+			    y: 0,
+			    width: 50,
+			    height: WINDOW_HEIGHT/2,
+			    mode: 0
+			});
+	 
+        } else if (tarlevel === 2) {
+                
+        	lvlTxt = "You're too small!";
+        
+	    	boxes.push({
+	    	    x: WINDOW_WIDTH - 10,
+	    	    y: 0,
+	    	    width: 50,
+	    	    height: WINDOW_HEIGHT/2,
+	    	    mode: 0
+	    	});
+	    	
+	    	console.log("two");
+	    	 
+	    
+	    	boxes.push({
+	    	    x: 160,
+	    	    y: WINDOW_HEIGHT - 101,
+	    	    width: 145,
+	    	    height: 10,
+	    	    mode: 1
+		    });
+
+        } else if (tarlevel === 3) {
+
+        	lvlTxt = "and not smart enough!";
+
+	    	boxes.push({
+	    	    x: WINDOW_WIDTH - 10,
+	    	    y: 0,
+	    	    width: 50,
+	    	    height: WINDOW_HEIGHT/2,
+	    	    mode: 0
+	    	});
+	    	
+	    	console.log("three");
+	    	
+        } else {
+        	mode = MODE_BEGIN;
+        }
+
+    }
+
+
+
+	  // <audio src="LASER1.WAV" controls autoplay loop>
+	
+</script>
+</head>
+<body>
+
+<audio id="bgsound" preload="auto" loop='true'>
+	<source src="cube.mp3" type="audio/mp3">
+</audio>
+
+<canvas id ="myCanvas" width="480" height="320">
+
+</body>
+</html>
+
+
+
+

@@ -1,0 +1,13 @@
+LEVEL -1 Don't Touch The Lava!
+boxes.push({x:455, y:0, width:23, height:193, mode:0});
+boxes.push({x:26, y:180, width:55, height:8, mode:0});
+boxes.push({x:102, y:120, width:58, height:8, mode:0});
+boxes.push({x:216, y:78, width:58, height:11, mode:0});
+boxes.push({x:321, y:124, width:76, height:11, mode:0});
+boxes.push({x:10, y:211, width:421, height:10, mode:1});
+
+LEVEL 0 Little Cube, what are you doing here?
+
+LEVEL 1 You aren't big enough!
+
+

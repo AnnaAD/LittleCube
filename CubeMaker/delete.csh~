@@ -1,0 +1,27 @@
+#! /bin/csh -f
+
+if ($#argv != 1) then
+    echo "usage: delete <delete-point>"
+    exit(1)
+endif
+set ipoint = $argv[1]
+
+cd Levels
+
+foreach f ( `ls | sort -n -r` )
+    set result = `echo $f $ipoint | awk '{ if ($1 >= $2) { print "yes"; } else { print "no"; }}'`
+    if ($result == "yes") then
+	set target = `echo $f | awk '{print $1 + 1}'`
+	echo "DO   mv $f $target"
+	if (-f $target) then
+	    echo "abort: target exists!"
+	    echo $target
+	    exit(1)
+	endif
+	mv $f $target
+    else
+	echo "DONT mv $f"
+    endif
+end
+
+

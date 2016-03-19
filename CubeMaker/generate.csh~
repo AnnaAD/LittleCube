@@ -1,0 +1,33 @@
+#! /bin/csh -f
+
+if ($#argv != 1) then
+    echo "usage: generate <dir>"
+    exit(1)
+endif
+set indir   = $argv[1]
+
+cd $indir
+
+echo "    if (level == -2) {"
+echo "        // left blank"
+
+foreach f ( `ls | sort -n` )
+    gawk -vn=$f -f ../generate.awk $f
+end
+
+echo "    }"
+exit(0)
+
+
+
+
+
+
+
+
+
+
+
+
+
+

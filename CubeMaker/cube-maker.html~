@@ -1,0 +1,214 @@
+<!doctype html> <html>
+<head>
+<title>Cube - Level Maker</title>
+<script>
+
+// comments
+
+var offLeft = 0;
+var offTop  = 0;
+
+var WINDOW_WIDTH  = 568;
+var WINDOW_HEIGHT = 320;
+
+const KEY_SPACEBAR      = 32;
+const KEY_UPARROW       = 38;
+const KEY_LEFTARROW     = 37;
+const KEY_RIGHTARROW    = 39;
+
+const KEY_A             = 65;
+const KEY_B             = 66;
+const KEY_C             = 67;
+const KEY_P             = 80;
+const KEY_U             = 85;
+
+const COLOR_BLACK       = 0;
+const COLOR_RED         = 1;
+const COLOR_PURPLE      = 2;
+
+var canvas;
+var c;
+
+var boxColor = "#000000";
+var boxMode  = COLOR_BLACK;
+
+const MODE_NOTHING  = 1;
+const MODE_DEFINING = 2;
+
+var mode     = MODE_NOTHING;
+var hiX      = 0;
+var hiY      = 0;
+var hiWidth  = 0;
+var hiHeight = 0;
+
+var boxes = [];
+
+
+// 
+// INITIALIZE APPLICATION
+//
+window.addEventListener("load", eventWindowLoaded, false);
+
+function eventWindowLoaded () {	
+    canvas = document.getElementById("myCanvas");
+    c = canvas.getContext("2d");
+    offLeft = canvas.offsetLeft;
+    offTop  = canvas.offsetTop;
+    canvas.addEventListener("mousedown", doMouseDown, false);
+    canvas.onmousemove = doMousePosition;
+
+    drawBackground();
+    setBoxType(COLOR_BLACK);
+    drawBoxtype();
+}
+
+function drawBox(x, y, w, h, color) {
+    c.globalAlpha = 1;
+    c.lineWidth   = 1;
+    c.fillStyle   = color;
+    c.fillRect(x, y, w, h);
+}
+
+function drawBackground() {
+    drawBox(0, 0,                   WINDOW_WIDTH, WINDOW_HEIGHT, "#999999");
+    drawBox(0, WINDOW_HEIGHT - 100, WINDOW_WIDTH, 100,           "#000000");
+    drawBox(0, 0,                   1,            WINDOW_HEIGHT, "#000000");
+}
+
+function drawBoxtype() {
+    drawBox(10, WINDOW_HEIGHT - 20, 10, 10, boxColor);
+}
+
+function drawBoxes() {	
+    len = boxes.length;
+    for (var i = 0; i < len; i++) {
+	e = boxes[i];
+	drawBox(e.x, e.y, e.width, e.height, e.color);
+    }
+}
+
+function drawHiBox() {
+    if (mode === MODE_DEFINING) {
+	drawBox(hiX, hiY, hiWidth, hiHeight, boxColor);
+	document.myUpdateForm.myUpdate.value = hiWidth + "," + hiHeight;
+    }
+}
+
+function undo() {
+    mode = MODE_NOTHING;
+}
+
+function drawAll() {
+    drawBackground();
+    drawBoxtype();
+    drawBoxes();
+    drawHiBox();
+}
+
+function setBoxType(mode) {
+    boxMode = mode;
+    if (boxMode === COLOR_BLACK) {
+	boxColor = "#000000";
+    } else if (boxMode === COLOR_RED) {
+	boxColor = "#FF0000";
+    } else if (boxMode === COLOR_PURPLE) {
+	boxColor = "#FF00FF";
+    }
+}
+
+function doMouseDown(e) {
+    var mouseX = e.pageX - offLeft;
+    var mouseY = e.pageY - offTop;
+
+    if (mode === MODE_NOTHING) {
+	mode     = MODE_DEFINING;
+	hiX      = mouseX;
+	hiY      = mouseY;
+    } else if (mode === MODE_DEFINING) {
+	boxes.push({x: hiX, y: hiY, width: hiWidth, height: hiHeight, color: boxColor, mode: boxMode});
+	mode     = MODE_NOTHING;
+	hiWidth  = 0;
+	hiHeight = 0;
+	drawAll();
+    }
+    return;
+}
+
+function doMouseUp(e) {
+    return;
+}
+
+function doMousePosition(e) {
+    if (e.offsetX) {
+        mouseX = e.offsetX;
+        mouseY = e.offsetY;
+    } else if (e.layerX) {
+        mouseX = e.layerX;
+        mouseY = e.layerY;
+    }
+    if (mode === MODE_DEFINING) {
+	hiWidth  = mouseX - hiX;
+	hiHeight = mouseY - hiY;
+	drawAll();
+    }
+}
+
+function printBoxCode() {
+    len = boxes.length;
+    for (var i = 0; i < len; i++) {
+	var e = boxes[i];
+	var s = "boxes.push({x:" + e.x + ", y:" + e.y + ", width:" + e.width + ", height:" + e.height + ", mode:" + e.mode + "});";
+	console.log(s);
+	document.myForm.myText.value += s;
+	document.myForm.myText.value += "\n";
+    }
+
+}
+
+document.onkeydown = function(e) {
+    console.log("keycode " + e.keyCode);
+    k = e.keyCode;
+    if (k === KEY_A) {
+	setBoxType(COLOR_BLACK);
+    } else if (k === KEY_B) {
+	setBoxType(COLOR_RED);
+    } else if (k === KEY_C) {
+	setBoxType(COLOR_PURPLE);
+    } else if (k === KEY_P) {
+	printBoxCode();
+    } else if (k === KEY_U) {
+	undo();
+    } else if (k === KEY_SPACEBAR) {
+	console.log("clearing all");
+	boxes = [];
+	document.myForm.myText.value = "";
+    }
+    drawAll();
+}	
+
+
+
+
+</script>
+</head>
+<body>
+
+<form name="myUpdateForm">
+<textarea id="myUpdate" rows="1" cols="80">
+</textarea>
+</form>
+
+<canvas id ="myCanvas" width="568" height="320">
+</canvas>
+
+<form name="myForm">
+<textarea id="myText" rows="15" cols="80">
+</textarea>
+</form>
+    
+</body>
+</html>
+    
+    
+    
+    

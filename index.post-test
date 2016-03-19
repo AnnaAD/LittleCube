@@ -1,0 +1,8 @@
+        </script>
+            
+    </head>
+    <body onload="init();" ontouchmove="blockmove(event);">
+        <canvas id="can" height="320" width="568">
+        </canvas>
+    </body>
+</html>
